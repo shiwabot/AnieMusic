@@ -340,6 +340,7 @@ async def play(_, message: Message):
         os.remove("final.png")
         return await lel.delete()
     else:
+        s_name = title            
         r_by = requested_by
         loc = file_path
         appendable = [s_name, r_by, loc]      
