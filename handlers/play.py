@@ -1,5 +1,5 @@
 from os import path
-
+from typing import Dict
 from pyrogram import Client
 from pyrogram.types import Message, Voice
 
@@ -29,8 +29,15 @@ import ffmpeg
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
+from config import que
 
 
+           
+                                          
+                                          
+                                          
+                                          
+                                          
 def transcode(filename):
     ffmpeg.input(filename).output("input.raw", format='s16le', acodec='pcm_s16le', ac=2, ar='48k').overwrite_output().run() 
     os.remove(filename)
@@ -92,6 +99,145 @@ async def generate_cover(requested_by, title, views, duration, thumbnail):
     os.remove("background.png")
 
 
+ 
+@Client.on_message(filters.command('playlist', '^'))
+async def playlist(client, message):
+    global que
+    queue = que.get(message.chat.id)
+    if not queue:
+        await message.reply_text('Player is idle')
+    temp = []
+    for t in queue:
+        temp.append(t)
+    now_playing = temp[0][0]
+    by = temp[0][1].mention(style='md')
+    msg = "**Now Playing** in {}".format(message.chat.title)
+    msg += "\n- "+ now_playing
+    msg += "\n- Req by "+by
+    temp.pop(0)
+    if temp:
+        msg += '\n\n'
+        msg += '**Queue**'
+        for song in temp:
+            name = song[0]
+            usr = song[1].mention(style='md')
+            msg += f'\n- {name}'
+            msg += f'\n- Req by {usr}\n'
+    await message.reply_text(msg)       
+    
+# ============================= Settings =========================================
+
+def updated_stats(chat, queue, vol=100):
+    if chat.id in active_chats:
+        stats = 'Settings of **{}**'.format(chat.title)
+        if len(que) > 0:
+            stats += '\n\n'
+            stats += 'Volume : {}%\n'.format(vol)
+            stats += 'Songs in queue : `{}`\n'.format(len(que))
+            stats += 'Now Playing : **{}**\n'.format(queue[0][0])
+            stats += 'Requested by : {}'.format(queue[0][1].mention)
+    else:
+        stats = None
+    return stats
+
+def r_ply(type_):
+    if type_ == 'play':
+        ico = '▶'
+    else:
+        ico = '⏸'
+    mar = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton('🔉', '_v'),
+                InlineKeyboardButton(ico, type_),
+                InlineKeyboardButton('🔊', 'v_')
+            ],
+            [
+                InlineKeyboardButton('Skip', 'skip')
+            ]
+        ]
+    )
+    return mar
+
+@Client.on_message(filters.command('current'))
+async def settings(client, message):
+    playing = None
+    if message.chat.id in callsmusic.pytgcalls.active_calls:
+        playing = True
+    queue = que.get(message.chat.id)
+    stats = updated_stats(message.chat, queue)
+    if stats:
+        if playing:
+            await message.reply(stats, reply_markup=r_ply('pause'))
+            
+        else:
+            await message.reply(stats, reply_markup=r_ply('play'))
+    else:
+        await message.reply('No VC instances running in this chat')
+
+@Client.on_callback_query(filters.regex(pattern=r'^(play|pause|skip|leave)$'))
+async def m_cb(b, cb):
+    global que
+    qeue = que.get(cb.message.chat.id)
+    type_ = cb.matches[0].group(1)
+    chat_id = cb.message.chat.id
+    m_chat = cb.message.chat
+    the_data = cb.message.reply_markup.inline_keyboard[1][0].callback_data
+    if type_ == 'pause':
+        
+        if (
+            chat_id not in callsmusic.pytgcalls.active_calls
+                ) or (
+                    callsmusic.pytgcalls.active_calls[chat_id] == 'paused'
+                ):
+            await cb.answer('Chat is not connected!', show_alert=True)
+        else:
+            callsmusic.pytgcalls.pause_stream(chat_id)
+            
+            await cb.answer('Music Paused!')
+            await cb.message.edit(updated_stats(m_chat, qeue), reply_markup=r_ply('play'))
+                
+
+    elif type_ == 'play':
+        
+        if (
+            chat_id not in callsmusic.pytgcalls.active_calls
+            ) or (
+                callsmusic.pytgcalls.active_calls[chat_id] == 'playing'
+            ):
+                await cb.answer('Chat is not connected!', show_alert=True)
+        else:
+            callsmusic.pytgcalls.resume_stream(chat_id)
+            await cb.answer('Music Resumed!')
+            await cb.message.edit(updated_stats(m_chat, qeue), reply_markup=r_ply('pause'))
+            
+    elif type_ == 'skip':
+        if qeue:
+            skip = qeue.pop(0)
+        if chat_id not in callsmusic.pytgcalls.active_calls:
+            await cb.answer('Chat is not connected!', show_alert=True)
+        else:
+            callsmusic.queues.task_done(chat_id)
+
+            if callsmusic.queues.is_empty(chat_id):
+                callsmusic.pytgcalls.leave_group_call(chat_id)
+                active_chats[cb.message.chat.id] = {"playing": False, "muted": False}
+                await cb.message.edit('- No More Playlist..\n- Leaving VC!')
+            else:
+                callsmusic.pytgcalls.change_stream(
+                    chat_id,
+                    callsmusic.queues.get(chat_id)["file"]
+                )
+                await cb.answer()
+                await cb.message.edit(updated_stats(m_chat, qeue), reply_markup=r_ply(the_data))
+                await cb.message.reply_text(f'- Skipped track\n- Now Playing **{qeue[0][0]}**')
+
+    else:
+        group_call = get_instance(chat_id)
+        if group_call.is_connected:
+            await cb.message.edit('Successfully Left the Chat!')
+        else:
+            await cb.answer('Chat is not connected!', show_alert=True)
 
 @Client.on_message(command("play") & other_filters)
 @errors
