@@ -148,13 +148,10 @@ def r_ply(type_):
     mar = InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton('🔉', '_v'),
                 InlineKeyboardButton(ico, type_),
-                InlineKeyboardButton('🔊', 'v_')
-            ],
-            [
                 InlineKeyboardButton('Skip', 'skip')
             ]
+
         ]
     )
     return mar
