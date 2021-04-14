@@ -7,6 +7,19 @@ from callsmusic import callsmusic
 from config import BOT_NAME as BN
 from helpers.filters import command, other_filters
 from helpers.decorators import errors, authorized_users_only
+from config import que
+
+
+
+async def skip(message):
+    global que
+    queue = que.get(message.chat.id)
+    if queue:
+        skip = queue.pop(0)
+    if not queue:
+        return
+    await message.reply_text(f'- Skipped **{skip[0]}**\n- Now Playing **{queue[0][0]}**')
+
 
 
 @Client.on_message(command("pause") & other_filters)
@@ -72,4 +85,4 @@ async def skip(_, message: Message):
                 callsmusic.queues.get(message.chat.id)["file"]
             )
 
-        await message.reply_text("➡️ Skipped the current song!")
+        await skip(message)
