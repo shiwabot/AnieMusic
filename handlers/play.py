@@ -245,7 +245,7 @@ async def play(_, message: Message):
     sender_name = message.from_user.first_name
     audio = (message.reply_to_message.audio or message.reply_to_message.voice) if message.reply_to_message else None
     url = get_url(message)
-
+    qeue = que.get(message.chat.id)
     if audio:
         if round(audio.duration / 60) > DURATION_LIMIT:
             raise DurationLimitError(
@@ -322,6 +322,11 @@ async def play(_, message: Message):
   
     if message.chat.id in callsmusic.pytgcalls.active_calls:
         position = await queues.put(message.chat.id, file=file_path)
+        s_name = title
+        r_by = requested_by
+        loc = file_path
+        appendable = [s_name, r_by, loc]
+        qeue.append(appendable)
         await message.reply_photo(
         photo="final.png", 
         caption=f"#⃣ Your requested song **queued** at position {position}!",
@@ -329,6 +334,10 @@ async def play(_, message: Message):
         os.remove("final.png")
         return await lel.delete()
     else:
+        r_by = requested_by
+        loc = file_path
+        appendable = [s_name, r_by, loc]      
+        qeue.append(appendable)
         callsmusic.pytgcalls.join_group_call(message.chat.id, file_path)
         await message.reply_photo(
         photo="final.png",
