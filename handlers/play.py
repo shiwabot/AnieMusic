@@ -10,7 +10,13 @@ import requests
 import aiohttp
 import youtube_dl
 from youtube_search import YoutubeSearch
-
+from pyrogram import filters, emoji
+from pyrogram.types import InputMediaPhoto
+from pyrogram.errors.exceptions.bad_request_400 import ChatAdminRequired
+from pyrogram.errors.exceptions.flood_420 import FloodWait
+import traceback
+import os
+import sys
 
 import converter
 from downloaders import youtube
